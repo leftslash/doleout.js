@@ -1,4 +1,3 @@
-const url  = require('url')
 const http = require('http')
 
 const port = 1234

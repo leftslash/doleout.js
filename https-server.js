@@ -1,5 +1,4 @@
 const fs    = require('fs')
-const url   = require('url')
 const https = require('https')
 
 const port = 1234

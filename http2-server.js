@@ -1,5 +1,4 @@
 const fs    = require('fs')
-const url   = require('url')
 const http2 = require('http2')
 
 const port = 1234
@@ -13,7 +12,7 @@ const options = {
 
 const server = new http2.createSecureServer(options)
 
-server.on('stream', (stream, headers) => {
+server.on('stream', (stream) => {
   // request.headers
   // request.method
   // request.url
