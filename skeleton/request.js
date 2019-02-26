@@ -1,11 +1,9 @@
-const url = require('url')
-
 function Request(request) { 
   this.request = request
   this.method = request.method
   this.headers = request.headers
-  this.url = url.parse(request.url)
-  console.log(JSON.stringify(this.url))
+  this.url = request.url
+  console.log(this)
 }
 
 Request.prototype.cookie = function() {}

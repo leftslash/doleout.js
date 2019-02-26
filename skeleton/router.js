@@ -1,9 +1,10 @@
+const request = require('./request')
+
 const parmRegExp = /^{.*}$/
 
-function getRegExp(path) {
+function genRegExp(path) {
   var str = '^'
-  var dirs = path.split('/').slice(1)
-  for (dir of dirs) {
+  for (dir of path.split('/').slice(1)) {
     if (parmRegExp.test(dir)) {
       str += '/[^/]+'
     } else {
@@ -13,26 +14,20 @@ function getRegExp(path) {
   return new RegExp(str + '$')
 }
 
-function Route(method, path, handler) {
-  this.method = method
-  this.path = path
-  this.handler = handler
-}
-
 function Router() {
   this.table = []
 }
 
 Router.prototype.add = function(method, path, handler) {
-  const route = new Route(method, path, handler)
-  route.regexp = getRegExp(route.path)
+  const route = { method, path, handler }
+  route.regexp = genRegExp(route.path)
   this.table.push(route)
 }
 
-Router.prototype.find = function(method, path) {
+Router.prototype.find = function(request) {
   for (route of this.table) {
-    if (route.method === method) {
-      if (route.regexp.test(path)) {
+    if (route.method === request.method) {
+      if (route.regexp.test(request.path)) {
         return route
       }
     }

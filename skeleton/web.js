@@ -1,8 +1,24 @@
 const fs = require('fs')
 const http = require('http')
+
 const router = require('./router')
 const request = require('./request')
 const response = require('./response')
+
+// TODO: logging
+// TODO: cookies
+// TODO: security stuff 
+// TODO: jwt auth
+// TODO: user/group auth
+// TODO: http/s/2
+// TODO: static w/mime
+// TODO: move shit to util class
+// TODO: webdav
+// TODO: git
+// TODO: php
+// TODO: proxy
+// TODO: rewrite
+// TODO: routes defined in yaml
 
 function zeropad(num) {
   return num > 9 ? '' + num : '0' + num
@@ -23,9 +39,9 @@ function log(message) {
   this.config.log.write(timestamp() + ': ' + message + '\n')
 }
 
-function Web() {}
+function WebServer() {}
 
-Web.prototype.configure = function(config) {
+WebServer.prototype.configure = function(config) {
   this.config = config || {}
   this.config.host = this.config.host || '127.0.0.1'
   this.config.port = this.config.port || 8080
@@ -35,36 +51,36 @@ Web.prototype.configure = function(config) {
   }
 }
 
-Web.prototype.registerGet = function(path, handler) {
+WebServer.prototype.registerGet = function(path, handler) {
   router.add('get', path, handler)
 }
 
-Web.prototype.registerPut = function(path, handler) {
+WebServer.prototype.registerPut = function(path, handler) {
   router.add('put', path, handler)
 }
 
-Web.prototype.registerPost = function(path, handler) {
+WebServer.prototype.registerPost = function(path, handler) {
   router.add('post', path, handler)
 }
 
-Web.prototype.registerDelete = function(path, handler) {
+WebServer.prototype.registerDelete = function(path, handler) {
   router.add('delete', path, handler)
 }
 
-Web.prototype.registerStatic = function(path) {
+WebServer.prototype.registerStatic = function(path) {
   router.add('static', path, null)
 }
 
-Web.prototype.run = function() {
+WebServer.prototype.run = function() {
   if (!this.config) this.configure()
 
   const server = new http.Server()
 
-  server.on('request', (_request, _response) => {
+  server.on('request', function(_request, _response) {
     const req = new request(_request)
     const res = new response(_response)
-    _response.write('Hello, World!\n')
-    _response.end()
+    res.response.write('Hello, World!\n')
+    res.response.end()
   })
 
   log.call(this, `started, listening on ${this.config.host}:${this.config.port}`)
@@ -73,8 +89,9 @@ Web.prototype.run = function() {
 
 }
 
-module.exports = new Web()
+module.exports = new WebServer()
 
-w = new Web()
-w.configure({port:1234})
+w = new WebServer()
+w.configure({ port: 1234 })
+w.registerGet('/item', function() {})
 w.run()

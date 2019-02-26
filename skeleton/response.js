@@ -1,4 +1,6 @@
-function Response() { }
+function Response(response) { 
+  this.response = response
+}
 
 Response.prototype.type = function() {}
 Response.prototype.cookie = function() {}
@@ -6,4 +8,4 @@ Response.prototype.write = function() {}
 Response.prototype.header = function() {}
 Response.prototype.err = function() {}
 
-modules.export = Response
+module.exports = Response
