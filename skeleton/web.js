@@ -5,13 +5,13 @@ const router = require('./router')
 const request = require('./request')
 const response = require('./response')
 
+// TODO: static w/mime
 // TODO: logging
 // TODO: cookies
 // TODO: security stuff 
 // TODO: jwt auth
 // TODO: user/group auth
 // TODO: http/s/2
-// TODO: static w/mime
 // TODO: move shit to util class
 // TODO: webdav
 // TODO: git
@@ -35,10 +35,6 @@ function timestamp() {
   return `${y}-${m}-${d} ${H}:${M}:${S}`
 }
 
-function log(message) {
-  this.config.log.write(timestamp() + ': ' + message + '\n')
-}
-
 function WebServer() {}
 
 WebServer.prototype.configure = function(config) {
@@ -49,6 +45,10 @@ WebServer.prototype.configure = function(config) {
   if (typeof this.config.log === 'string') {
     this.config.log = fs.createWriteStream(this.config.log)
   }
+}
+
+WebServer.prototype.registerStatic = function(path) {
+  router.add('get', path, null)
 }
 
 WebServer.prototype.registerGet = function(path, handler) {
@@ -67,8 +67,8 @@ WebServer.prototype.registerDelete = function(path, handler) {
   router.add('delete', path, handler)
 }
 
-WebServer.prototype.registerStatic = function(path) {
-  router.add('static', path, null)
+WebServer.prototype.log = function(message) {
+  this.config.log.write(timestamp() + ': ' + message + '\n')
 }
 
 WebServer.prototype.run = function() {
@@ -76,22 +76,32 @@ WebServer.prototype.run = function() {
 
   const server = new http.Server()
 
-  server.on('request', function(_request, _response) {
+  server.on('request', (_request, _response) => {
     const req = new request(_request)
     const res = new response(_response)
-    res.response.write('Hello, World!\n')
-    res.response.end()
+    this.log(`${req.path}`)
+    const route = router.find(req)
+    if (!route) {
+      res.err(404)
+      return
+    }
+    route.handler(req, res)
   })
 
-  log.call(this, `started, listening on ${this.config.host}:${this.config.port}`)
+  this.log(`started, listening on ${this.config.host}:${this.config.port}`)
 
   server.listen(this.config.port, this.config.host)
 
 }
 
-module.exports = new WebServer()
+module.exports = new WebServer
 
-w = new WebServer()
+function handler(req, res) {
+  res.response.write(`Hello, ${req.param('id')}!\n`)
+  res.response.end()
+}
+
+w = new WebServer
 w.configure({ port: 1234 })
-w.registerGet('/item', function() {})
+w.registerGet('/item/{id}/other/{x}', handler)
 w.run()
