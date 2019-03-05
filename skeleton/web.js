@@ -94,12 +94,10 @@ WebServer.prototype.run = function() {
 module.exports = new WebServer
 
 function handler(req, res) {
-  setTimeout(() => {
-    req.form((body) => {
-      res.write(`${body}\n`)
-      res.end()
+  req.form((body) => {
+    res.write(`${body}\n`)
+    res.end()
     })
-  }, 1000)
 }
 
 w = new WebServer

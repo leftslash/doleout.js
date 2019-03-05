@@ -18,6 +18,13 @@ function Router() {
   this.table = []
 }
 
+// Route object contains:
+//   at register time:
+//     method
+//     path
+//     handler
+//     regexp
+
 Router.prototype.add = function(method, path, handler) {
   const route = { method, path, handler }
   route.regexp = makeRegExp(route.path)

@@ -1,5 +1,23 @@
 const pathParamRegExp = /^{.*}$/
 
+// Request object contains:
+//   at incoming message time:
+//     request
+//     method
+//     headers
+//     path
+//     body (asynchronously)
+//   at match with handler:
+//     route
+//       method
+//       path
+//       handler
+//       regexp
+
+function delay(todo) {
+  setTimeout(() => { todo() }, 1000)
+}
+
 function Request(request) { 
 
   this.request = request
@@ -14,9 +32,18 @@ function Request(request) {
 
   this.request.on('end', () => {
     this.body = body
-    if (this.client) this.client(this.body)
+    if (this.callback) { 
+      this.callback(this.body)
+    }
   })
+}
 
+Request.prototype.form = function(callback) {
+  if (this.body) {
+    callback(this.body)
+  } else {
+    this.callback = callback
+  }
 }
 
 Request.prototype.param = function(key) {
@@ -49,10 +76,6 @@ Request.prototype.query = function(key) {
     }
   }
   return this.queryParams[key]
-}
-
-Request.prototype.form = function(callback) {
-  this.client = callback
 }
 
 Request.prototype.cookie = function() {}
