@@ -94,10 +94,14 @@ WebServer.prototype.run = function() {
 module.exports = new WebServer
 
 function handler(req, res) {
-  req.form((body) => {
-    res.write(`${body}\n`)
+  // req.form('x', (value) => {
+  //   res.write(`${value}\n`)
+  //   res.end()
+  // })
+  req.json((body) => {
+    res.write(`${JSON.stringify(body, null, 2)}\n`)
     res.end()
-    })
+  })
 }
 
 w = new WebServer

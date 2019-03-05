@@ -1,21 +1,15 @@
 const pathParamRegExp = /^{.*}$/
 
-// Request object contains:
-//   at incoming message time:
-//     request
-//     method
-//     headers
-//     path
-//     body (asynchronously)
-//   at match with handler:
-//     route
-//       method
-//       path
-//       handler
-//       regexp
-
-function delay(todo) {
-  setTimeout(() => { todo() }, 1000)
+function parseForm(data) {
+  params = {}
+  query = data.split('&')
+  for (let keyValue of query) {
+    keyValue = keyValue.split('=')
+    let key = decodeURIComponent(keyValue[0])
+    let val = decodeURIComponent(keyValue[1])
+    params[key] = val
+  }
+  return params
 }
 
 function Request(request) { 
@@ -25,24 +19,81 @@ function Request(request) {
   this.headers = request.headers
   this.path = request.url.split('?')[0]
 
+  // set a private variable to accumulate body data
   let body = ''
   this.request.on('data', (chunk) => {
     body += chunk
   })
 
   this.request.on('end', () => {
-    this.body = body
-    if (this.callback) { 
-      this.callback(this.body)
+    // process any input data based on content-type
+    this.contentType = this.headers['content-type']
+    if (this.contentType) this.contentType = this.contentType.toLowerCase()
+    if (this.contentType === 'application/x-www-form-urlencoded') {
+      this.formParams = parseForm(body)
+      // move body data to public variable when done loading
+      this.body = body
+      // if there are any clients waiting for body data
+      if (this.waiters && this.waiters.length > 0) { 
+        let waiter = this.waiters.pop()
+        waiter.callback(this.formParams[waiter.key])
+      }
+    } else if (this.contentType === 'application/json') {
+      try { this.jsonData = JSON.parse(body) } catch(e) { this.jsonData = null }
+      this.body = body
+      if (this.waiters && this.waiters.length > 0) { 
+        let waiter = this.waiters.pop()
+        waiter.callback(this.jsonData)
+      }
+    } else { 
+      // set the body in a public field for consumption
+      this.body = body
+      // if we were slow loading data and there is someone
+      // waiting for the data, then call them with the data
+      if (this.waiters && this.waiters.length > 0) { 
+        let waiter = this.waiters.pop()
+        waiter.callback(this.body)
+      }
     }
   })
 }
 
-Request.prototype.form = function(callback) {
+Request.prototype.json = function(callback) {
+  // if the data is already loaded
+  if (this.jsonData) {
+    // pass the data back to the caller
+    callback(this.jsonData)
+  } else {
+    // otherwise register a callback
+    // to be invoked when data is ready
+    if (!this.waiters) this.waiters = []
+    this.waiters.push({ callback })
+  }
+}
+
+Request.prototype.form = function(key, callback) {
+  // if the data is already loaded
+  if (this.formParams) {
+    // call them with the data
+    callback(this.formParams[key])
+  } else {
+    // otherwise register a callback
+    // to be invoked when data is ready
+    if (!this.waiters) this.waiters = []
+    this.waiters.push({ key, callback })
+  }
+}
+
+Request.prototype.body = function(callback) {
+  // if the data is already loaded
   if (this.body) {
+    // call them with the data
     callback(this.body)
   } else {
-    this.callback = callback
+    // otherwise register a callback
+    // to be invoked when data is ready
+    if (!this.waiters) this.waiters = []
+    this.waiters.push({ callback })
   }
 }
 
@@ -63,22 +114,14 @@ Request.prototype.param = function(key) {
 
 Request.prototype.query = function(key) {
   if (this.queryParams === undefined) {
-    this.queryParams = {}
     const queries = this.request.url.split('?').slice(1)
     for (let query of queries) {
-      query = query.split('&')
-      for (let keyValue of query) {
-        keyValue = keyValue.split('=')
-        let key = keyValue[0]
-        let val = keyValue[1]
-        this.queryParams[key] = val
-      }
+      this.queryParams = parseForm(query)
     }
   }
   return this.queryParams[key]
 }
 
 Request.prototype.cookie = function() {}
-Request.prototype.json = function() {}
 
 module.exports = Request
