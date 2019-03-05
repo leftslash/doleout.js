@@ -8,7 +8,7 @@ const response = require('./response')
 // TODO: static w/mime
 // TODO: logging
 // TODO: cookies
-// TODO: security stuff 
+// TODO: security stuff
 // TODO: jwt auth
 // TODO: user/group auth
 // TODO: http/s/2
@@ -81,10 +81,7 @@ WebServer.prototype.run = function() {
     const res = new response(_response)
     this.log(`${req.path}`)
     const route = router.find(req)
-    if (!route) {
-      res.err(404)
-      return
-    }
+    if (!route) return res.err(404)
     route.handler(req, res)
   })
 
@@ -97,11 +94,15 @@ WebServer.prototype.run = function() {
 module.exports = new WebServer
 
 function handler(req, res) {
-  res.response.write(`Hello, ${req.param('id')}!\n`)
-  res.response.end()
+  setTimeout(() => {
+    req.form((body) => {
+      res.write(`${body}\n`)
+      res.end()
+    })
+  }, 1000)
 }
 
 w = new WebServer
 w.configure({ port: 1234 })
-w.registerGet('/item/{id}/other/{x}', handler)
+w.registerPost('/item/{id}/other/{x}', handler)
 w.run()

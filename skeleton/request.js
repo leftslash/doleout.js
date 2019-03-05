@@ -7,18 +7,26 @@ function Request(request) {
   this.headers = request.headers
   this.path = request.url.split('?')[0]
 
-}
+  let body = ''
+  this.request.on('data', (chunk) => {
+    body += chunk
+  })
 
-Request.prototype.cookie = function() {}
+  this.request.on('end', () => {
+    this.body = body
+    if (this.client) this.client(this.body)
+  })
+
+}
 
 Request.prototype.param = function(key) {
   if (this.pathParams === undefined) {
     this.pathParams = {}
     const routeDirs = this.route.path.split('/').slice(1)
     const pathDirs = this.path.split('/').slice(1)
-    for (var i in routeDirs) {
+    for (let i in routeDirs) {
       if (pathParamRegExp.test(routeDirs[i])) {
-        var dir = routeDirs[i].slice(1,routeDirs[i].length-1)
+        let dir = routeDirs[i].slice(1,routeDirs[i].length-1)
         this.pathParams[dir] = pathDirs[i]
       }
     }
@@ -30,19 +38,24 @@ Request.prototype.query = function(key) {
   if (this.queryParams === undefined) {
     this.queryParams = {}
     const queries = this.request.url.split('?').slice(1)
-    for (var i in queries) {
-      var query = queries[i]
-      var keyValues = query.split('&')
-      for (var j in keyValues) {
-        var keyValue = keyValues[j].split('=')
-        this.queryParams[keyValue[0]] = keyValue[1]
+    for (let query of queries) {
+      query = query.split('&')
+      for (let keyValue of query) {
+        keyValue = keyValue.split('=')
+        let key = keyValue[0]
+        let val = keyValue[1]
+        this.queryParams[key] = val
       }
     }
   }
   return this.queryParams[key]
 }
-        
+
+Request.prototype.form = function(callback) {
+  this.client = callback
+}
+
+Request.prototype.cookie = function() {}
 Request.prototype.json = function() {}
-Request.prototype.form = function() {}
 
 module.exports = Request
