@@ -42,13 +42,14 @@ WebServer.prototype.configure = function(config) {
   this.config.host = this.config.host || '127.0.0.1'
   this.config.port = this.config.port || 8080
   this.config.log = this.config.log || process.stderr
+  this.config.dir = this.config.dir || __dirname
   if (typeof this.config.log === 'string') {
     this.config.log = fs.createWriteStream(this.config.log)
   }
 }
 
-WebServer.prototype.registerStatic = function(path) {
-  router.add('get', path, null)
+WebServer.prototype.registerStatic = function(path, directory) {
+  router.addStatic(path, directory)
 }
 
 WebServer.prototype.registerGet = function(path, handler) {
@@ -81,7 +82,14 @@ WebServer.prototype.run = function() {
     const res = new response(_response)
     this.log(`${req.path}`)
     const route = router.find(req)
-    if (!route) return res.err(404)
+    if (!route) {
+      res.err(404)
+      return
+    }
+    if (!route.handler && route.directory) {
+      serveStatic(route)
+      return 
+    }
     route.handler(req, res)
   })
 
@@ -92,6 +100,8 @@ WebServer.prototype.run = function() {
 }
 
 module.exports = new WebServer
+
+// This is just development/test hackery, delete later
 
 function handler(req, res) {
   // req.form('x', (value) => {
@@ -106,5 +116,6 @@ function handler(req, res) {
 
 w = new WebServer
 w.configure({ port: 1234 })
+w.registerStatic('/public', 'static')
 w.registerPost('/item/{id}/other/{x}', handler)
 w.run()

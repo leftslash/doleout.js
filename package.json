@@ -1,1 +1,11 @@
-  {"name":"test","version":"1.0.0","description":" ","repository":" ","author":"Todd Castilow<todd@leftslash.com>","license":"ISC"}
+{
+  "name": "doleout.js",
+  "version": "1.0.0",
+  "main": "index.js",
+  "repository": "git@github.com:leftslash/doleout.js",
+  "author": "Todd Castilow <todd@leftslash.com>",
+  "license": "MIT",
+  "dependencies": {
+    "mime-db": "^1.38.0"
+  }
+}
