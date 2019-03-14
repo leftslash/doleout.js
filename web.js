@@ -5,14 +5,13 @@ const router   = require('./router')
 const Request  = require('./request')
 const Response = require('./response')
 
-// TODO: template render
+// TODO: add include to template render
 // TODO: logging
 // TODO: cookies
+// TODO: http/s/2
 // TODO: security stuff
 // TODO: jwt auth
 // TODO: user/group auth
-// TODO: http/s/2
-// TODO: move shit to util class
 // TODO: webdav
 // TODO: git
 // TODO: php
@@ -131,10 +130,12 @@ function handler(req, res) {
   //   res.write(`${value}\n`)
   //   res.end()
   // })
-  req.json((body) => {
-    res.write(`${JSON.stringify(body, null, 2)}\n`)
-    res.end()
-  })
+  // req.json((body) => {
+  //   res.write(`${JSON.stringify(body, null, 2)}\n`)
+  //   res.end()
+  // })
+  let data = { title: 'Hello, Todd!', list: {a:1, b:2, c:3} }
+  res.render('template.html', data)
 }
 
 s = new WebServer
