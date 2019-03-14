@@ -1,11 +1,11 @@
-const fs = require('fs')
+const fs   = require('fs')
 const http = require('http')
 
-const router = require('./router')
-const request = require('./request')
-const response = require('./response')
+const router   = require('./router')
+const Request  = require('./request')
+const Response = require('./response')
 
-// TODO: static w/mime
+// TODO: template render
 // TODO: logging
 // TODO: cookies
 // TODO: security stuff
@@ -35,17 +35,25 @@ function timestamp() {
   return `${y}-${m}-${d} ${H}:${M}:${S}`
 }
 
-function WebServer() {}
+function WebServer() {
+  this.config      = {}
+  this.config.host = '127.0.0.1'
+  this.config.port =  8080
+  this.config.log  =  process.stderr
+  this.config.dir  =  __dirname
+
+  router.config = this.config
+}
 
 WebServer.prototype.configure = function(config) {
-  this.config = config || {}
-  this.config.host = this.config.host || '127.0.0.1'
-  this.config.port = this.config.port || 8080
-  this.config.log = this.config.log || process.stderr
-  this.config.dir = this.config.dir || __dirname
+  this.config.host = config.host || this.config.host
+  this.config.port = config.port || this.config.port
+  this.config.log  = config.log  || this.config.log
+  this.config.dir  = config.dir  || this.config.dir
   if (typeof this.config.log === 'string') {
     this.config.log = fs.createWriteStream(this.config.log)
   }
+  router.config = this.config
 }
 
 WebServer.prototype.registerStatic = function(path, directory) {
@@ -73,28 +81,43 @@ WebServer.prototype.log = function(message) {
 }
 
 WebServer.prototype.run = function() {
-  if (!this.config) this.configure()
 
+  // Create a new server
   const server = new http.Server()
 
+  // Setup callback to handle incoming requests
   server.on('request', (_request, _response) => {
-    const req = new request(_request)
-    const res = new response(_response)
+
+    // create new objects to wrap native node stuff
+    const req = new Request(_request)
+    const res = new Response(_response)
+
+    // log this incoming request
     this.log(`${req.path}`)
+
+    // find the route that matches this request
+    // and return an error if there's no matching route
     const route = router.find(req)
     if (!route) {
       res.err(404)
       return
     }
+
+    // if we have a route, but no handler, but a directory
+    // then treat this as a request for static content
     if (!route.handler && route.directory) {
-      serveStatic(route)
+      res.static(req, route)
       return 
     }
+
+    // otherwise, pass off request to handler defined in route
     route.handler(req, res)
   })
 
+  // Initial log entry
   this.log(`started, listening on ${this.config.host}:${this.config.port}`)
 
+  // Actually start the server
   server.listen(this.config.port, this.config.host)
 
 }
@@ -114,8 +137,8 @@ function handler(req, res) {
   })
 }
 
-w = new WebServer
-w.configure({ port: 1234 })
-w.registerStatic('/public', 'static')
-w.registerPost('/item/{id}/other/{x}', handler)
-w.run()
+s = new WebServer
+s.configure({ port: 1234 })
+s.registerStatic('/public', 'static')
+s.registerPost('/item/{id}/other/{x}', handler)
+s.run()

@@ -14,46 +14,67 @@ function parseForm(data) {
 
 function Request(request) { 
 
+  // Constructor initiated properties
   this.request = request
-  this.method = request.method.toLowerCase()
+  this.method  = request.method.toLowerCase()
   this.headers = request.headers
-  this.path = request.url.split('?')[0]
+  this.path    = request.url.split('?')[0]
 
+  // Properties assigned later, included here for sanity's sake
+  this.body        = undefined
+  this.formParams  = undefined
+  this.jsonData    = undefined
+  this.contentType = undefined
+  this.waiters     = undefined
+
+
+  // Read the body of the request now to streamline future requests for data
   // set a private variable to accumulate body data
   let body = ''
   this.request.on('data', (chunk) => {
     body += chunk
   })
 
+  // when body has been completely loaded into local variable
   this.request.on('end', () => {
+
     // process any input data based on content-type
     this.contentType = this.headers['content-type']
     if (this.contentType) this.contentType = this.contentType.toLowerCase()
+
+    // Parse Form data if applicable
     if (this.contentType === 'application/x-www-form-urlencoded') {
       this.formParams = parseForm(body)
       // move body data to public variable when done loading
       this.body = body
-      // if there are any clients waiting for body data
+      // if there are any clients already waiting for body data
       if (this.waiters && this.waiters.length > 0) { 
         let waiter = this.waiters.pop()
         waiter.callback(this.formParams[waiter.key])
       }
-    } else if (this.contentType === 'application/json') {
+      return
+    } 
+    
+    // Parse JSON Data if applicable
+    if (this.contentType === 'application/json') {
       try { this.jsonData = JSON.parse(body) } catch(e) { this.jsonData = null }
       this.body = body
+      // if there are any clients already waiting for body data
       if (this.waiters && this.waiters.length > 0) { 
         let waiter = this.waiters.pop()
         waiter.callback(this.jsonData)
       }
-    } else { 
-      // set the body in a public field for consumption
-      this.body = body
-      // if we were slow loading data and there is someone
-      // waiting for the data, then call them with the data
-      if (this.waiters && this.waiters.length > 0) { 
-        let waiter = this.waiters.pop()
-        waiter.callback(this.body)
-      }
+      return
+    }
+
+    // Otherwise, parse untyped data
+    // set the body in a public field for consumption
+    this.body = body
+    // if we were slow loading data and there is someone
+    // waiting for the data, then call them with the data
+    if (this.waiters && this.waiters.length > 0) { 
+      let waiter = this.waiters.pop()
+      waiter.callback(this.body)
     }
   })
 }

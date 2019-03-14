@@ -1,6 +1,4 @@
-const path = require('path')
-
-const request = require('./request')
+const pathUtil = require('path')
 
 const parmRegExp = /^{.*}$/
 
@@ -13,35 +11,40 @@ function makeRegExp(path) {
       str += '/' + dir
     }
   }
-  return new RegExp(str + '\/?$')
+  return new RegExp(str + '\/?')
 }
 
 function Router() {
+
+  // Constructor initiated properties
   this.table = []
+  
+  // Properties assigned later, included here for sanity's sake
+  this.config = undefined
+
 }
 
-// Route object contains:
-//   at register time:
-//     method
-//     path
-//     handler
-//     directory
-//     regexp
+function Route(method, path, handler) {
+
+  // Constructor initiated properties
+  this.method  = method
+  this.path    = path
+  this.handler = handler
+
+  // Properties assigned later, included here for sanity's sake
+  this.regexp    = undefined
+  this.directory = undefined
+
+}
 
 Router.prototype.add = function(method, path, handler) {
-  const route = { method, path, handler }
-  route.regexp = makeRegExp(route.path)
-  this.table.push(route)
-}
-
-Router.prototype.addStatic = function(path, directory) {
-  const route = { method: 'get', path, handler: null, path.join(config.dir, directory) }
+  const route = new Route(method, path, handler)
   route.regexp = makeRegExp(route.path)
   this.table.push(route)
 }
 
 Router.prototype.find = function(request) {
-  for (route of this.table) {
+  for (let route of this.table) {
     if (route.method === request.method) {
       if (route.regexp.test(request.path)) {
         request.route = route
@@ -50,6 +53,13 @@ Router.prototype.find = function(request) {
     }
   }
   return null
+}
+
+Router.prototype.addStatic = function(path, directory) {
+  const route = new Route('get', path, null)
+  route.regexp = makeRegExp(route.path)
+  route.directory = pathUtil.join(this.config.dir, directory)
+  this.table.push(route)
 }
 
 module.exports = new Router

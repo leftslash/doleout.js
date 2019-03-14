@@ -14,8 +14,4 @@ for (let mimeType in db) {
   }
 }
 
-for (let ext in mime) {
-  console.log(`${ext}\t${mime[ext]}`)
-}
-
 module.exports = mime
