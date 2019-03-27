@@ -1,10 +1,22 @@
-const fs   = require('fs')
-const http = require('http')
+const fs       = require('fs')
+const http     = require('http')
+const https    = require('https')
+const http2    = require('http2')
+const pathUtil = require('path')
+
+// TODO: Bail on Symbols for Strings, nice idea but not ready for primetime
 
 const router   = require('./router')
 const Request  = require('./request')
 const Response = require('./response')
 
+const protocols = [ 'http', 'https', 'http2' ]
+
+const defaultSslCA   =  pathUtil.join(__dirname, 'ssl/ca.crt')
+const defaultSslCrt  =  pathUtil.join(__dirname, 'ssl/https.crt')
+const defaultSslKey  =  pathUtil.join(__dirname, 'ssl/https.key')
+
+// TODO: fix 404 on bad static file 
 // TODO: add include to template render
 // TODO: logging
 // TODO: cookies
@@ -35,24 +47,52 @@ function timestamp() {
 }
 
 function WebServer() {
-  this.config      = {}
-  this.config.host = '127.0.0.1'
-  this.config.port =  8080
-  this.config.log  =  process.stderr
-  this.config.dir  =  __dirname
+  this.proto = {}
+  this.config = {}
+  for (let p of protocols) {
+    this.proto[p] = new ProtocolServer(p)
+    this.config[p] = this.proto[p].config
+  }
+}
 
-  router.config = this.config
+function ProtocolServer(proto) {
+  this.config = {}
+  switch (proto) {
+    case 'http':
+      this.config.port =  8080
+      break;
+    case 'https':
+      this.config.port =  8443
+      this.config.ca   =  defaultSslCA
+      this.config.crt  =  defaultSslCrt
+      this.config.key  =  defaultSslKey
+      break;
+    case 'http2':
+      this.config.port =  8880
+      this.config.ca   =  defaultSslCA
+      this.config.crt  =  defaultSslCrt
+      this.config.key  =  defaultSslKey
+      break;
+    default:
+      this.config = undefined
+      return
+  }
+  this.config.enable = true
+  this.config.host   = 'localhost'
+  this.config.dir    = __dirname
+  this.config.log    =  process.stderr
+  router.config = router.config || {}
+  router.config.proto = this.config
 }
 
 WebServer.prototype.configure = function(config) {
-  this.config.host = config.host || this.config.host
-  this.config.port = config.port || this.config.port
-  this.config.log  = config.log  || this.config.log
-  this.config.dir  = config.dir  || this.config.dir
-  if (typeof this.config.log === 'string') {
-    this.config.log = fs.createWriteStream(this.config.log)
+  for (let p of protocols) {
+    this.config[p] = {...this.config[p], ...config.protocols[p]}
+    if (typeof this.config[p].log === 'string') {
+      this.config[p].log = fs.createWriteStream(this.config[p].log)
+    }
+    router.config[p] = this.config[p]
   }
-  router.config = this.config
 }
 
 WebServer.prototype.registerStatic = function(path, directory) {
@@ -76,16 +116,23 @@ WebServer.prototype.registerDelete = function(path, handler) {
 }
 
 WebServer.prototype.log = function(message) {
-  this.config.log.write(timestamp() + ': ' + message + '\n')
+  this.config.http.log.write(timestamp() + ': ' + message + '\n')
 }
 
 WebServer.prototype.run = function() {
 
-  // Create a new server
-  const server = new http.Server()
+  const sslOptions = {
+    ca:   fs.readFileSync(this.config.https.ca),
+    cert: fs.readFileSync(this.config.https.crt),
+    key:  fs.readFileSync(this.config.https.key)
+  }
+
+  // Create new HTTP/S/2 servers
+  const httpServer = new http.Server()
+  const httpsServer = new https.createServer(sslOptions)
 
   // Setup callback to handle incoming requests
-  server.on('request', (_request, _response) => {
+  httpServer.on('request', (_request, _response) => {
 
     // create new objects to wrap native node stuff
     const req = new Request(_request)
@@ -113,11 +160,18 @@ WebServer.prototype.run = function() {
     route.handler(req, res)
   })
 
-  // Initial log entry
-  this.log(`started, listening on ${this.config.host}:${this.config.port}`)
+  // Setup callback to handle incoming requests
+  httpsServer.on('request', (_request, _response) => {
+    _response.end('Hello, World!')
+  })
 
-  // Actually start the server
-  server.listen(this.config.port, this.config.host)
+  // Initial log entry
+  this.log(`http started, listening on ${this.config.http.host}:${this.config.http.port}`)
+  this.log(`https started, listening on ${this.config.https.host}:${this.config.https.port}`)
+
+  // Actually start the servers
+  httpServer.listen(this.config.http.port, this.config.http.host)
+  httpsServer.listen(this.config.https.port, this.config.https.host)
 
 }
 
@@ -139,7 +193,7 @@ function handler(req, res) {
 }
 
 s = new WebServer
-s.configure({ port: 1234 })
+s.config.HTTPS.host = 'www.local'
 s.registerStatic('/public', 'static')
 s.registerPost('/item/{id}/other/{x}', handler)
 s.run()

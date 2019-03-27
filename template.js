@@ -1,5 +1,3 @@
-// Credit to: https://github.com/jasonmoo/t.js
-
 const blockRegExp = /\{\{(([@!]?)(.+?))\}\}(([\s\S]+?)(\{\{:\1\}\}([\s\S]+?))?)\{\{\/\1\}\}/g
 const valRegExp   = /\{\{([=%])(.+?)\}\}/g
 
@@ -76,7 +74,4 @@ Template.prototype.render = function(data) {
 
 module.exports = Template
 
-// let text = `<h1>{{=title}}</h1>\n<div>\n  <ul>\n{{@list}}    <li>{{=_key}}:{{=_val}}</li>\n{{/@list}}\n  </ul>\n</div>`
-// let data = { title: 'Hello, World!', list: {a:1, b:2, c:3} }
-// let template = new Template(text)
-// console.log(template.render(data))
+// Credit to: https://github.com/jasonmoo/t.js
