@@ -3,24 +3,12 @@ const http     = require('http')
 const https    = require('https')
 const http2    = require('http2')
 const pathUtil = require('path')
-
-// TODO: Bail on Symbols for Strings, nice idea but not ready for primetime
-
-const router   = require('./router')
+const Router   = require('./router')
 const Request  = require('./request')
 const Response = require('./response')
 
-const protocols = [ 'http', 'https', 'http2' ]
-
-const defaultSslCA   =  pathUtil.join(__dirname, 'ssl/ca.crt')
-const defaultSslCrt  =  pathUtil.join(__dirname, 'ssl/https.crt')
-const defaultSslKey  =  pathUtil.join(__dirname, 'ssl/https.key')
-
 // TODO: fix 404 on bad static file 
-// TODO: add include to template render
-// TODO: logging
 // TODO: cookies
-// TODO: http/s/2
 // TODO: security stuff
 // TODO: jwt auth
 // TODO: user/group auth
@@ -30,6 +18,23 @@ const defaultSslKey  =  pathUtil.join(__dirname, 'ssl/https.key')
 // TODO: proxy
 // TODO: rewrite
 // TODO: routes defined in yaml
+
+const defaultHost      =  'localhost'
+const defaultLog       =  process.stderr
+const defaultDir       =  __dirname
+const defaultHttpPort  =  8080
+const defaultHttpsPort =  8443
+const defaultHttp2Port =  8880
+const defaultSslCA     =  pathUtil.join(__dirname, 'ssl/ca.crt')
+const defaultSslCrt    =  pathUtil.join(__dirname, 'ssl/https.crt')
+const defaultSslKey    =  pathUtil.join(__dirname, 'ssl/https.key')
+const defaultDisabled  =  false
+
+const protocols = [ 'http', 'https', 'http2' ]
+
+function isIn(item, array) {
+  return array.includes(item)
+}
 
 function zeropad(num) {
   return num > 9 ? '' + num : '0' + num
@@ -46,104 +51,90 @@ function timestamp() {
   return `${y}-${m}-${d} ${H}:${M}:${S}`
 }
 
-function WebServer() {
-  this.proto = {}
-  this.config = {}
-  for (let p of protocols) {
-    this.proto[p] = new ProtocolServer(p)
-    this.config[p] = this.proto[p].config
-  }
-}
-
 function ProtocolServer(proto) {
-  this.config = {}
+
   switch (proto) {
     case 'http':
-      this.config.port =  8080
-      break;
+      this.port = defaultHttpPort
+      break
     case 'https':
-      this.config.port =  8443
-      this.config.ca   =  defaultSslCA
-      this.config.crt  =  defaultSslCrt
-      this.config.key  =  defaultSslKey
-      break;
+      this.port = defaultHttpsPort
+      this.ca   = defaultSslCA
+      this.crt  = defaultSslCrt
+      this.key  = defaultSslKey
+      break
     case 'http2':
-      this.config.port =  8880
-      this.config.ca   =  defaultSslCA
-      this.config.crt  =  defaultSslCrt
-      this.config.key  =  defaultSslKey
-      break;
+      this.port = defaultHttp2Port
+      this.ca   = defaultSslCA
+      this.crt  = defaultSslCrt
+      this.key  = defaultSslKey
+      break
     default:
-      this.config = undefined
       return
   }
-  this.config.enable = true
-  this.config.host   = 'localhost'
-  this.config.dir    = __dirname
-  this.config.log    =  process.stderr
-  router.config = router.config || {}
-  router.config.proto = this.config
+
+  this.proto   = proto 
+  this.host    = defaultHost
+  this.dir     = defaultDir
+  this.logFile = defaultLog
+  this.disable = defaultDisabled
+
+  this.router = new Router
+  this.router.proto = this
 }
 
-WebServer.prototype.configure = function(config) {
-  for (let p of protocols) {
-    this.config[p] = {...this.config[p], ...config.protocols[p]}
-    if (typeof this.config[p].log === 'string') {
-      this.config[p].log = fs.createWriteStream(this.config[p].log)
+ProtocolServer.prototype.log = function(message) {
+  this.logFile.write(timestamp() + ': ' + message + '\n')
+}
+
+ProtocolServer.prototype.registerStatic = function(path, directory) {
+  this.router.addStatic(path, directory)
+}
+
+ProtocolServer.prototype.register = function(method, path, handler) {
+  this.router.add(method, path, handler)
+}
+
+ProtocolServer.prototype.registerGet = function(path, handler) {
+  this.register('get', path, handler)
+}
+
+ProtocolServer.prototype.registerPut = function(path, handler) {
+  this.register('put', path, handler)
+}
+
+ProtocolServer.prototype.registerPost = function(path, handler) {
+  this.register('post', path, handler)
+}
+
+ProtocolServer.prototype.registerDelete = function(path, handler) {
+  this.register('delete', path, handler)
+}
+
+ProtocolServer.prototype.run = function() {
+
+  let server = undefined
+
+  const sslOptions = () => {
+    return {
+      ca:   fs.readFileSync(this.ca),
+      cert: fs.readFileSync(this.crt),
+      key:  fs.readFileSync(this.key)
     }
-    router.config[p] = this.config[p]
-  }
-}
-
-WebServer.prototype.registerStatic = function(path, directory) {
-  router.addStatic(path, directory)
-}
-
-WebServer.prototype.registerGet = function(path, handler) {
-  router.add('get', path, handler)
-}
-
-WebServer.prototype.registerPut = function(path, handler) {
-  router.add('put', path, handler)
-}
-
-WebServer.prototype.registerPost = function(path, handler) {
-  router.add('post', path, handler)
-}
-
-WebServer.prototype.registerDelete = function(path, handler) {
-  router.add('delete', path, handler)
-}
-
-WebServer.prototype.log = function(message) {
-  this.config.http.log.write(timestamp() + ': ' + message + '\n')
-}
-
-WebServer.prototype.run = function() {
-
-  const sslOptions = {
-    ca:   fs.readFileSync(this.config.https.ca),
-    cert: fs.readFileSync(this.config.https.crt),
-    key:  fs.readFileSync(this.config.https.key)
   }
 
-  // Create new HTTP/S/2 servers
-  const httpServer = new http.Server()
-  const httpsServer = new https.createServer(sslOptions)
-
-  // Setup callback to handle incoming requests
-  httpServer.on('request', (_request, _response) => {
+  const handler = (request, response) => {
 
     // create new objects to wrap native node stuff
-    const req = new Request(_request)
-    const res = new Response(_response)
+    const req = new Request(request)
+    const res = new Response(response)
 
     // log this incoming request
-    this.log(`${req.path}`)
+    this.log(`${this.proto}://${this.host}:${this.port}${req.path}`)
 
     // find the route that matches this request
     // and return an error if there's no matching route
-    const route = router.find(req)
+    const route = this.router.find(req)
     if (!route) {
       res.err(404)
       return
@@ -158,21 +149,91 @@ WebServer.prototype.run = function() {
 
     // otherwise, pass off request to handler defined in route
     route.handler(req, res)
-  })
+  }
 
-  // Setup callback to handle incoming requests
-  httpsServer.on('request', (_request, _response) => {
-    _response.end('Hello, World!')
-  })
+  const streamHandler = (stream) => {
+    handler(stream, stream)
+  }
+
+  switch (this.proto) {
+    case 'http':
+      server = new http.Server()
+      server.on('request', handler)
+      break
+    case 'https':
+      server = https.createServer(sslOptions())
+      server.on('request', handler)
+      break
+    case 'http2':
+      server = http2.createServer(sslOptions())
+      server.on('stream', streamHandler)
+      break
+    default:
+      return
+  }
 
   // Initial log entry
-  this.log(`http started, listening on ${this.config.http.host}:${this.config.http.port}`)
-  this.log(`https started, listening on ${this.config.https.host}:${this.config.https.port}`)
+  this.log(`${this.proto}://${this.host}:${this.port} started`)
 
   // Actually start the servers
-  httpServer.listen(this.config.http.port, this.config.http.host)
-  httpsServer.listen(this.config.https.port, this.config.https.host)
+  server.listen(this.port, this.host)
 
+}
+
+function WebServer() {
+  this.proto = {}
+  for (let p of protocols) {
+    this.proto[p] = new ProtocolServer(p)
+  }
+}
+
+WebServer.prototype.forEachProtoServer = function(callback) {
+  for (let proto in this.proto) {
+    callback(this.proto[proto])
+  }
+}
+
+WebServer.prototype.configure = function(config) {
+  this.forEachProtoServer(function(proto) {
+    proto = {...proto, ...config[proto.proto]}
+    if (typeof proto.logFile === 'string') {
+      proto.logFile = fs.createWriteStream(proto.logFile)
+    }
+  })
+}
+
+WebServer.prototype.registerStatic = function(path, directory) {
+  this.forEachProtoServer(function(proto) {
+    proto.registerStatic(path, directory)
+  })
+}
+
+WebServer.prototype.register = function(method, path, handler) {
+  this.forEachProtoServer(function(proto) {
+    proto.register(method, path, handler)
+  })
+}
+
+WebServer.prototype.registerGet = function(path, handler) {
+  this.register('get', path, handler)
+}
+
+WebServer.prototype.registerPut = function(path, handler) {
+  this.register('put', path, handler)
+}
+
+WebServer.prototype.registerPost = function(path, handler) {
+  this.register('post', path, handler)
+}
+
+WebServer.prototype.registerDelete = function(path, handler) {
+  this.register('delete', path, handler)
+}
+
+WebServer.prototype.run = function() {
+  this.forEachProtoServer(function(proto) {
+    proto.disabled || proto.run()
+  })
 }
 
 module.exports = new WebServer
@@ -193,7 +254,9 @@ function handler(req, res) {
 }
 
 s = new WebServer
-s.config.HTTPS.host = 'www.local'
+s.proto.https.host = 'www.local'
+s.proto.http2.host = 'www.local'
 s.registerStatic('/public', 'static')
+s.proto.http.registerStatic('/public', 'static')
 s.registerPost('/item/{id}/other/{x}', handler)
 s.run()

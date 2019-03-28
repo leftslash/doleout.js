@@ -58,8 +58,8 @@ Router.prototype.find = function(request) {
 Router.prototype.addStatic = function(path, directory) {
   const route = new Route('get', path, null)
   route.regexp = makeRegExp(route.path)
-  route.directory = pathUtil.join(this.config.http.dir, directory)
+  route.directory = pathUtil.join(this.proto.dir, directory)
   this.table.push(route)
 }
 
-module.exports = new Router
+module.exports = Router
