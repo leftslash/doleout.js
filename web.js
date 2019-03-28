@@ -184,6 +184,7 @@ function WebServer() {
   this.proto = {}
   for (let p of protocols) {
     this.proto[p] = new ProtocolServer(p)
+    this[p] = this.proto[p] // convenience for clients
   }
 }
 
@@ -254,9 +255,14 @@ function handler(req, res) {
 }
 
 s = new WebServer
-s.proto.https.host = 'www.local'
-s.proto.http2.host = 'www.local'
+
+// Protocol-wide settings
 s.registerStatic('/public', 'static')
-s.proto.http.registerStatic('/public', 'static')
 s.registerPost('/item/{id}/other/{x}', handler)
+
+// Protocol-specific settings
+s.http.registerStatic('/static', 'static')
+s.https.host = 'www.local'
+s.http2.host = 'www.local'
+
 s.run()
