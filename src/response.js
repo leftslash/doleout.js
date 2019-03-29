@@ -25,11 +25,11 @@ Response.prototype.static = function(req, route) {
     this.err(404)
     return
   })
-  this.response.setHeader('Content-Type', mimeType)
-  this.response.writeHead(200)
-  // TODO: need to set the content type and headers after 
-  // pipe starts successfuuly, by listening to pipe events
-  file.pipe(this.response)
+  file.on('end', () => {
+    this.response.setHeader('Content-Type', mimeType)
+    this.response.writeHead(200)
+    file.pipe(this.response)
+  })
 }
 
 Response.prototype.render = function(fileName, data) {

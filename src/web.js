@@ -83,6 +83,15 @@ function ProtocolServer(proto) {
   this.router.proto = this
 }
 
+ProtocolServer.prototype.configure = function(config) {
+  for (let key in config) {
+    this[key] = config[key]
+  }
+  if (typeof this.logFile === 'string') {
+    this.logFile = fs.createWriteStream(this.logFile)
+  }
+}
+
 ProtocolServer.prototype.log = function(message) {
   this.logFile.write(timestamp() + ': ' + message + '\n')
 }
@@ -130,7 +139,7 @@ ProtocolServer.prototype.run = function() {
     const res = new Response(response)
 
     // log this incoming request
-    this.log(`${this.proto}://${this.host}:${this.port}${req.path}`)
+    this.log(`${this.proto}://${this.host}:${this.port}${req.request.url}`)
 
     // find the route that matches this request
     // and return an error if there's no matching route
@@ -196,10 +205,7 @@ WebServer.prototype.forEachProtoServer = function(callback) {
 
 WebServer.prototype.configure = function(config) {
   this.forEachProtoServer(function(proto) {
-    proto = {...proto, ...config[proto.proto]}
-    if (typeof proto.logFile === 'string') {
-      proto.logFile = fs.createWriteStream(proto.logFile)
-    }
+    proto.configure(config[proto.proto])
   })
 }
 
@@ -238,31 +244,3 @@ WebServer.prototype.run = function() {
 }
 
 module.exports = new WebServer
-
-// This is just development/test hackery, delete later
-
-function handler(req, res) {
-  // req.form('x', (value) => {
-  //   res.write(`${value}\n`)
-  //   res.end()
-  // })
-  // req.json((body) => {
-  //   res.write(`${JSON.stringify(body, null, 2)}\n`)
-  //   res.end()
-  // })
-  let data = { title: 'Hello, Todd!', list: {a:1, b:2, c:3} }
-  res.render('template.html', data)
-}
-
-s = new WebServer
-
-// Protocol-wide settings
-s.registerStatic('/public', 'static')
-s.registerGet('/item/{id}/other/{x}', handler)
-
-// Protocol-specific settings
-s.http.registerStatic('/static', 'static')
-s.https.host = 'www.local'
-s.http2.host = 'www.local'
-
-s.run()
