@@ -258,7 +258,7 @@ s = new WebServer
 
 // Protocol-wide settings
 s.registerStatic('/public', 'static')
-s.registerPost('/item/{id}/other/{x}', handler)
+s.registerGet('/item/{id}/other/{x}', handler)
 
 // Protocol-specific settings
 s.http.registerStatic('/static', 'static')
