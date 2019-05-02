@@ -7,7 +7,6 @@ const Router   = require('./router')
 const Request  = require('./request')
 const Response = require('./response')
 
-// TODO: fix 404 on bad static file 
 // TODO: cookies
 // TODO: security stuff
 // TODO: jwt auth

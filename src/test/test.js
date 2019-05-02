@@ -17,6 +17,7 @@ const config = {
   http2: { disabled: true }
 }
 
+
 server.configure(config)
 server.registerStatic('/public', 'test/static')
 server.registerGet('/list', listHandler)
